@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<catalog>
+  <plan><code>STARTER</code><name>Starter</name><seats>5</seats><mrr>299.00</mrr></plan>
+  <plan><code>PRO</code><name>Professional</name><seats>15</seats><mrr>999.00</mrr></plan>
+  <plan><code>ENTERPRISE</code><name>Enterprise</name><seats>50</seats><mrr>3999.00</mrr></plan>
+</catalog>

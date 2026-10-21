@@ -1,0 +1,127 @@
+name: crmops
+
+# One-command local setup: `docker compose up` brings up Postgres plus every
+# tier, runs Flyway migrations and loads the demo seed data.
+# All secrets below are LOCAL MOCK values — no real credentials anywhere.
+# Host ports can be overridden via env vars (e.g. CHANNEL_PORT=18080) when
+# the default ports are already in use.
+
+services:
+  builder:
+    # One-shot shared build stage: downloads dependencies once, packages all
+    # four tier jars (production frontend included). Service images below
+    # only copy their own jar out of this image.
+    build:
+      context: .
+      dockerfile: docker/builder.Dockerfile
+    image: crmops-builder
+    command: ["true"]
+    restart: "no"
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: crmops
+      POSTGRES_PASSWORD: crmops
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./docker/postgres-init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U crmops"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  decision:
+    build:
+      context: .
+      dockerfile: decision/Dockerfile
+    environment:
+      DECISION_DB_URL: jdbc:postgresql://postgres:5432/crm_decision
+      DECISION_DB_USER: crmops
+      DECISION_DB_PASSWORD: crmops
+      DECISION_CHANNEL_SERVICE_TOKEN: local-channel-service-token
+      DECISION_CORE_TOKEN_SECRET: local-core-token-secret-0123456789abcdef
+      DECISION_SESSION_TOKEN_SECRET: local-session-token-secret-0123456789
+    ports:
+      - "${DECISION_PORT:-8081}:8081"
+    depends_on:
+      builder:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+
+  core-mock:
+    build:
+      context: .
+      dockerfile: core-mock/Dockerfile
+    environment:
+      CORE_DB_URL: jdbc:postgresql://postgres:5432/crm_core
+      CORE_DB_USER: crmops
+      CORE_DB_PASSWORD: crmops
+      CORE_SERVICE_KEY: local-core-service-key
+      CORE_SCOPE_TOKEN_SECRET: local-core-token-secret-0123456789abcdef
+    ports:
+      - "${CORE_PORT:-8082}:8082"
+    depends_on:
+      builder:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+
+  channel:
+    build:
+      context: .
+      dockerfile: channel/Dockerfile
+    environment:
+      CHANNEL_DB_URL: jdbc:postgresql://postgres:5432/crm_channel
+      CHANNEL_DB_USER: crmops
+      CHANNEL_DB_PASSWORD: crmops
+      DECISION_URL: http://decision:8081
+      CORE_URL: http://core-mock:8082
+      CHANNEL_SERVICE_TOKEN: local-channel-service-token
+      CORE_SERVICE_KEY: local-core-service-key
+      FILE_STORAGE_DIR: /app/data/files
+      CRM_BASE_URL: http://localhost:8080
+      WEBHOOK_SINK_BASE: http://core-mock:8082
+      CRM_SEED_ENABLED: "true"
+    ports:
+      - "${CHANNEL_PORT:-8080}:8080"
+    volumes:
+      - crm-files:/app/data
+    depends_on:
+      builder:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+      decision:
+        condition: service_healthy
+      core-mock:
+        condition: service_healthy
+
+  batch:
+    build:
+      context: .
+      dockerfile: batch/Dockerfile
+    environment:
+      CHANNEL_DB_URL: jdbc:postgresql://postgres:5432/crm_channel
+      CHANNEL_DB_USER: crmops
+      CHANNEL_DB_PASSWORD: crmops
+      DECISION_URL: http://decision:8081
+      CHANNEL_SERVICE_TOKEN: local-channel-service-token
+      BATCH_ADMIN_TOKEN: local-batch-admin-token
+    ports:
+      - "${BATCH_PORT:-8083}:8083"
+    depends_on:
+      builder:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+      decision:
+        condition: service_healthy
+
+volumes:
+  pgdata:
+  crm-files:

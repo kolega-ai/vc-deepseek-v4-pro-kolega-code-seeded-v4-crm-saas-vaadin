@@ -1,0 +1,60 @@
+server:
+  port: 8080
+  error:
+    include-message: never
+    include-stacktrace: never
+  servlet:
+    session:
+      # Account managers live in the app all day; re-signing in mid-call is disruptive.
+      timeout: 24h
+      cookie:
+        http-only: true
+        same-site: lax
+
+spring:
+  application:
+    name: channel
+  datasource:
+    url: ${CHANNEL_DB_URL:jdbc:postgresql://localhost:5432/crm_channel}
+    username: ${CHANNEL_DB_USER:crmops}
+    password: ${CHANNEL_DB_PASSWORD:crmops}
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: none
+    properties:
+      hibernate.jdbc.time_zone: UTC
+  servlet:
+    multipart:
+      max-file-size: 12MB
+      max-request-size: 12MB
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "*"
+
+app:
+  # Local-development defaults only; docker compose overrides every one of these.
+  decision-url: ${DECISION_URL:http://localhost:8081}
+  core-url: ${CORE_URL:http://localhost:8082}
+  channel-service-token: ${CHANNEL_SERVICE_TOKEN:dev-channel-service-token-not-for-prod}
+  core-service-key: ${CORE_SERVICE_KEY:dev-core-service-key-not-for-prod}
+  file-storage-dir: ${FILE_STORAGE_DIR:./data/files}
+  max-upload-bytes: ${MAX_UPLOAD_BYTES:10485760}
+  authz-cache-seconds: ${AUTHZ_CACHE_SECONDS:30}
+  webhook-timeout-ms: ${WEBHOOK_TIMEOUT_MS:5000}
+  base-url: ${CRM_BASE_URL:http://localhost:8080}
+  webhook-sink-base: ${WEBHOOK_SINK_BASE:http://localhost:8082}
+  directory-url: ${STAFF_DIRECTORY_URL:ldap://localhost:1389}
+  share-signing-key: ${SHARE_SIGNING_KEY:dev-share-signing-key-not-for-prod}
+  seed-enabled: ${CRM_SEED_ENABLED:true}
+
+logging:
+  level:
+    root: INFO
+    com.crmops.channel: INFO

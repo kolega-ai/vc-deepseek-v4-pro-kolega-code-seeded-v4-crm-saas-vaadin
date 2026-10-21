@@ -1,0 +1,41 @@
+server:
+  port: 8083
+  error:
+    include-message: never
+    include-stacktrace: never
+
+spring:
+  application:
+    name: batch
+  datasource:
+    # The batch tier works against the channel tier's database (same team,
+    # same deploy). The channel tier owns the schema and migrations.
+    url: ${CHANNEL_DB_URL:jdbc:postgresql://localhost:5432/crm_channel}
+    username: ${CHANNEL_DB_USER:crmops}
+    password: ${CHANNEL_DB_PASSWORD:crmops}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: none
+    properties:
+      hibernate.jdbc.time_zone: UTC
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+app:
+  # Local-development defaults only; docker compose overrides them.
+  batch-admin-token: ${BATCH_ADMIN_TOKEN:dev-batch-admin-token-not-for-prod}
+  channel-service-token: ${CHANNEL_SERVICE_TOKEN:dev-channel-service-token-not-for-prod}
+  decision-url: ${DECISION_URL:http://localhost:8081}
+  webhook-timeout-ms: ${WEBHOOK_TIMEOUT_MS:5000}
+  webhook-max-attempts: 3
+  renewal-window-days: 30
+
+logging:
+  level:
+    root: INFO
+    com.crmops.batch: INFO
